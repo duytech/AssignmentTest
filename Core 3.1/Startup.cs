@@ -1,0 +1,77 @@
+using System;
+using Core_3._1.DTOs;
+using Core_3._1.Entities;
+using Core_3._1.Models;
+using Core_3._1.Services;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
+namespace Core_3._1
+{
+    public class Startup
+    {
+        public Startup(IConfiguration configuration)
+        {
+            Configuration = configuration;
+        }
+
+        public IConfiguration Configuration { get; }
+
+        // This method gets called by the runtime. Use this method to add services to the container.
+        public void ConfigureServices(IServiceCollection services)
+        {
+            string connectionString = Configuration.GetConnectionString("default");
+            services.AddDbContext<AppDBContext>(c => c.UseSqlServer(connectionString));
+
+            services.AddIdentity<ApplicationUser, IdentityRole>(config => {
+                config.SignIn.RequireConfirmedEmail = true;
+            })
+                .AddEntityFrameworkStores<AppDBContext>()
+                .AddDefaultTokenProviders();
+
+            services.Configure<AuthMessageSenderOptions>(Configuration.GetSection(AuthMessageSenderOptions.Name));
+            services.AddTransient<IEmailService, SendgridEmailService>();
+
+            services.ConfigureApplicationCookie(options =>
+            {
+                options.LoginPath = "/Account/Login";
+            });
+
+            services.AddControllersWithViews();
+        }
+
+        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IServiceProvider serviceProvider)
+        {
+            if (env.IsDevelopment())
+            {
+                app.UseDeveloperExceptionPage();
+            }
+            else
+            {
+                app.UseExceptionHandler("/Home/Error");
+            }
+            app.UseStaticFiles();
+
+            app.UseRouting();
+
+            app.UseAuthentication();
+
+            app.UseAuthorization();
+
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapControllerRoute(
+                    name: "default",
+                    pattern: "{controller=Home}/{action=Index}/{id?}");
+            });
+
+            serviceProvider.GetService<AppDBContext>().Database.Migrate();
+        }
+    }
+}
